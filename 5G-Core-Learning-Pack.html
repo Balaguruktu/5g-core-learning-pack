@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>5G Core Learning Pack — AMF Animated Flows</title>
+  <meta name="description" content="5G Core + AMF-centric animated call flows, layers, protocols. Single-file offline HTML." />
+  <style>
+    :root {
+      --bg:#0b1017; --panel:#141b24; --panel-2:#1a2330; --line:#2a3647;
+      --text:#f2f6fb; --muted:#c2cfde; --faint:#8fa0b5;
+      --accent:#3d8bfd; --accent-2:#45c4a0; --amf:#ffb020; --soft:rgba(61,139,253,.14);
+      --soft-amf:rgba(255,176,32,.16); --font:"Segoe UI",system-ui,-apple-system,sans-serif;
+      --mono:"Cascadia Code",Consolas,"Courier New",monospace;
+      --pad: clamp(14px, 2.5vw, 22px);
+      --nav-w: 260px;
+      --fs-body: 1.0625rem;   /* 17px */
+      --fs-lead: 1.125rem;    /* 18px */
+      --fs-small: 0.95rem;
+      --lh: 1.6;
+    }
+    *{box-sizing:border-box}
+    html{-webkit-text-size-adjust:100%;text-size-adjust:100%;font-size:100%}
+    body{
+      margin:0;font-family:var(--font);color:var(--text);
+      font-size:var(--fs-body);line-height:var(--lh);
+      overflow-x:hidden;
+      background:radial-gradient(ellipse 900px 420px at 8% -8%,rgba(61,139,253,.16),transparent 55%),
+                 radial-gradient(ellipse 600px 360px at 95% 0%,rgba(255,176,32,.08),transparent 50%),var(--bg);
+      padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    img,svg{max-width:100%;height:auto}
+    .app{display:grid;grid-template-columns:var(--nav-w) minmax(0,1fr);min-height:100vh;min-height:100dvh}
+    .nav{
+      background:rgba(20,27,36,.94);border-right:1px solid var(--line);padding:16px 14px;
+      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    }
+    .nav-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .brand{font-weight:700;font-size:1.15rem;word-break:break-word;min-width:0;flex:1;line-height:1.3}
+    .brand small{display:block;color:var(--faint);font-weight:400;font-size:.88rem;margin-top:5px;line-height:1.4}
+    .menu-toggle{
+      display:none;flex:0 0 auto;align-items:center;justify-content:center;gap:6px;
+      border:1px solid var(--line);background:var(--panel-2);color:var(--text);
+      border-radius:10px;padding:10px 14px;font:inherit;font-size:1rem;font-weight:650;
+      min-height:46px;min-width:46px;cursor:pointer;touch-action:manipulation;
+    }
+    .menu-toggle .bars{display:flex;flex-direction:column;gap:4px;width:18px}
+    .menu-toggle .bars i{display:block;height:2px;background:var(--text);border-radius:1px}
+    .nav-backdrop{
+      display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;
+      border:0;padding:0;margin:0;cursor:pointer;
+    }
+    .nav .links{display:grid;gap:6px;margin-top:14px}
+    .nav .links button{
+      text-align:left;border:1px solid transparent;background:transparent;color:var(--muted);
+      border-radius:10px;padding:12px 14px;font:inherit;font-size:1.02rem;cursor:pointer;
+      min-height:48px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;line-height:1.35;
+    }
+    .nav .links button:hover{background:var(--panel-2);color:var(--text)}
+    .nav .links button.active{background:var(--soft);border-color:rgba(61,139,253,.35);color:var(--text)}
+    .nav .links button.hot{border-color:rgba(255,176,32,.35);color:#ffd27a}
+    .nav .links button.hot.active{background:var(--soft-amf);color:#ffe0a3}
+    .section-label{
+      display:none;margin:0 0 12px;color:var(--faint);font-size:.9rem;
+      text-transform:uppercase;letter-spacing:.04em;font-weight:650;
+    }
+    .main{padding:var(--pad) var(--pad) 52px;max-width:1220px;width:100%;min-width:0}
+    h1{margin:0 0 12px;font-size:clamp(1.55rem,4.5vw,2rem);letter-spacing:-.02em;line-height:1.25;color:var(--text)}
+    h2{margin:0 0 12px;font-size:clamp(1.25rem,3.2vw,1.5rem);line-height:1.3;color:var(--text)}
+    h3{margin:0 0 10px;font-size:clamp(1.08rem,2.8vw,1.22rem);line-height:1.35;color:var(--text)}
+    p{margin:0 0 12px;color:var(--muted);font-size:var(--fs-body);line-height:var(--lh)}
+    .lead{max-width:68ch;font-size:var(--fs-lead);line-height:1.65;color:var(--muted)}
+    .view{display:none}.view.active{display:block}
+    .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .grid-2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(14px,2vw,18px);margin-top:14px;min-width:0}
+    .card{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+    .chip,.tab,.btn,.dot{
+      border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;
+      padding:10px 14px;font:inherit;font-size:1rem;cursor:pointer;
+      min-height:44px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;line-height:1.3;
+    }
+    .chip:hover,.tab:hover,.btn:hover:not(:disabled),.dot:hover{border-color:#3d4f66;background:var(--panel-2)}
+    .chip.active,.tab.active,.dot.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .tab.amf-tab.active{background:var(--amf);border-color:var(--amf);color:#1a1200}
+    .btn{border-radius:10px;padding:10px 16px}
+    .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+    .btn.green{background:var(--accent-2);border-color:var(--accent-2);color:#062018;font-weight:650}
+    .btn.amf{background:var(--amf);border-color:var(--amf);color:#1a1200;font-weight:700}
+    .btn:disabled{opacity:.4;cursor:not-allowed}
+    .meta{display:inline-block;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--accent);font-family:var(--mono);font-size:.88rem;margin-bottom:10px}
+    .meta.amf{background:var(--soft-amf);color:var(--amf)}
+    .table-scroll{
+      width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;
+      margin-top:8px;border-radius:8px;
+    }
+    table{width:100%;min-width:560px;border-collapse:collapse;font-size:1.02rem;margin-top:0;line-height:1.5}
+    th,td{text-align:left;padding:12px 12px;border-bottom:1px solid var(--line);vertical-align:top;word-break:break-word}
+    th{color:var(--faint);font-size:.88rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;font-weight:700}
+    td{color:var(--muted)}
+    .note{margin-top:14px;padding:14px 16px;border-radius:10px;background:var(--soft);border:1px solid rgba(61,139,253,.28);color:var(--muted);font-size:1.05rem;line-height:1.6}
+    .note.amf{background:var(--soft-amf);border-color:rgba(255,176,32,.35)}
+    .footer{margin-top:12px;color:var(--faint);font-size:.92rem;line-height:1.45}
+    .mono{font-family:var(--mono);font-size:.95em;word-break:break-word}
+    .kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+    .kpi .card strong{display:block;font-size:1.25rem;margin-bottom:4px;color:var(--text)}
+    .kpi .card span{color:var(--faint);font-size:.95rem;line-height:1.4}
+    .progress{height:7px;background:#223041;border-radius:999px;overflow:hidden;margin:10px 0 8px}
+    .progress>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--amf),var(--accent-2));transition:width .25s ease}
+    .stage{
+      display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:12px;
+      background:linear-gradient(90deg,rgba(255,176,32,.12),rgba(61,139,253,.08));
+      border:1px solid rgba(255,176,32,.35);margin-bottom:12px;min-height:74px;
+    }
+    .stage .badge{
+      flex:0 0 auto;width:56px;height:56px;border-radius:12px;background:var(--amf);color:#1a1200;
+      display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.05rem;
+      animation:pulseAmf 1.2s ease-in-out infinite;
+    }
+    .stage > div{min-width:0;flex:1}
+    .stage h3{margin:0 0 6px;color:#ffe0a3;font-size:clamp(1.05rem,3vw,1.2rem);line-height:1.35}
+    .stage p{margin:0;color:var(--muted);font-size:1.05rem;line-height:1.55}
+    @keyframes pulseAmf{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,176,32,.55)}50%{transform:scale(1.04);box-shadow:0 0 0 10px rgba(255,176,32,0)}}
+
+    .map-wrap,.ladder-wrap{
+      overflow-x:auto;-webkit-overflow-scrolling:touch;background:#0e1520;
+      border:1px solid var(--line);border-radius:12px;padding:10px;max-width:100%;
+    }
+    .map-wrap::after,.ladder-wrap::after,.table-scroll::after{
+      content:"";display:block;height:0;
+    }
+    svg.map,svg.ladder{display:block;width:100%;min-width:740px;touch-action:pan-x pan-y}
+    .node{cursor:pointer}
+    .node rect{fill:var(--panel-2);stroke:#3a4758;stroke-width:1.5}
+    .node text{fill:var(--muted);font-size:14px;font-weight:650;pointer-events:none}
+    .node.on rect{fill:var(--accent);stroke:var(--accent)}
+    .node.on text{fill:#fff}
+    .node.amf-glow rect{fill:var(--amf);stroke:#ffd27a;filter:drop-shadow(0 0 8px rgba(255,176,32,.7))}
+    .node.amf-glow text{fill:#1a1200}
+    .node.peer rect{fill:#2a5a8a;stroke:var(--accent)}
+    .node.peer text{fill:#fff}
+    .node.dead{cursor:default}
+    .edge{stroke:#2f3b4a;stroke-width:1.2;fill:none}
+    .edge.on{stroke:var(--accent);stroke-width:2}
+    .edge.live{stroke:var(--amf);stroke-width:3;stroke-dasharray:10 7;animation:dash .55s linear infinite;filter:drop-shadow(0 0 4px rgba(255,176,32,.6))}
+    .edge-label{fill:var(--faint);font-size:12px}
+    .edge-label.live{fill:var(--amf);font-weight:700}
+    @keyframes dash{to{stroke-dashoffset:-34}}
+    .pkt{fill:var(--amf);filter:drop-shadow(0 0 6px rgba(255,176,32,.9))}
+
+    .actor-line{stroke:#2a3647;stroke-width:1.5}
+    .actor-box rect{fill:var(--panel-2);stroke:#3a4758}
+    .actor-box.amf rect{fill:var(--amf);stroke:#ffd27a}
+    .actor-box text{fill:var(--text);font-size:13px;font-weight:650}
+    .actor-box.amf text{fill:#1a1200}
+    .msg-line{stroke:#4d6078;stroke-width:1.6;fill:none}
+    .msg-line.active{stroke:var(--amf);stroke-width:2.6;filter:drop-shadow(0 0 4px rgba(255,176,32,.5))}
+    .msg-line.done{stroke:#3d8bfd88}
+    .msg-label{fill:var(--muted);font-size:12px;font-family:var(--mono)}
+    .msg-label.active{fill:#ffd27a;font-weight:700}
+    .msg-label.done{fill:#7ea8df}
+    .timeline{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px}
+    .timeline button{min-width:44px;min-height:44px;padding:8px 10px;border-radius:8px;font-size:1rem}
+    .stack{display:grid;gap:8px}
+    .layer{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--panel-2);cursor:pointer;touch-action:manipulation}
+    .layer:hover,.layer.active{border-color:rgba(61,139,253,.5);background:#1d2838}
+    .layer .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .layer .name{font-weight:700;font-size:1.08rem}.layer .plane{color:var(--faint);font-size:.95rem}
+    .layer .desc{color:var(--muted);margin-top:8px;font-size:1.02rem;line-height:1.55}
+    .proto-pill{display:inline-block;margin:4px 4px 0 0;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line);font-family:var(--mono);font-size:.88rem}
+    .share-box{background:#101822;border:1px dashed #3a4d66;border-radius:12px;padding:16px;overflow-wrap:anywhere;font-size:1.05rem;line-height:1.55}
+    .hidden{display:none!important}
+    .amf-role-list{margin:0;padding-left:20px;color:var(--muted);font-size:1.05rem;line-height:1.55}
+    .amf-role-list li{margin-bottom:8px}
+    #flow-tabs,#nf-chips,#iface-tabs,.row{max-width:100%}
+    #flow-speed{max-width:100%;min-height:44px;font-size:1rem}
+
+    /* Tablet + phone: compact bar + slide-down menu (does not stay open) */
+    @media (max-width:960px){
+      .app{grid-template-columns:1fr}
+      .menu-toggle{display:inline-flex}
+      .section-label{display:block}
+      .nav{
+        position:sticky;top:0;z-index:50;border-right:0;border-bottom:1px solid var(--line);
+        padding:8px 12px;
+        max-height:none;
+      }
+      .brand small{display:none}
+      .nav > .footer{display:none}
+      .nav .links{
+        display:none;
+        position:fixed;left:12px;right:12px;top:60px;z-index:60;
+        margin:0;padding:10px;
+        background:var(--panel);border:1px solid var(--line);border-radius:14px;
+        box-shadow:0 12px 40px rgba(0,0,0,.45);
+        max-height:min(70vh,520px);overflow-y:auto;-webkit-overflow-scrolling:touch;
+        gap:6px;
+      }
+      body.menu-open .nav .links{display:grid}
+      body.menu-open .nav-backdrop{display:block}
+      body.menu-open{overflow:hidden}
+      .nav .links button{
+        width:100%;text-align:left;border:1px solid var(--line);background:var(--panel-2);
+        padding:14px 16px;font-size:1.1rem;
+      }
+      .main{padding-top:12px}
+      .grid-2,.grid-3{grid-template-columns:1fr}
+      .kpi{grid-template-columns:1fr 1fr}
+      #flow-tabs,#nf-chips,#iface-tabs{
+        display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+        padding-bottom:6px;margin-bottom:10px;scrollbar-width:thin;
+      }
+      #flow-tabs .tab,#nf-chips .chip,#iface-tabs .tab{flex:0 0 auto;white-space:nowrap}
+    }
+
+    /* Phone refinements — larger type for comfortable reading */
+    @media (max-width:640px){
+      :root{
+        --fs-body: 1.125rem;   /* 18px */
+        --fs-lead: 1.1875rem;  /* 19px */
+        --lh: 1.65;
+      }
+      .main{padding:12px 12px 40px}
+      .panel{padding:14px;border-radius:12px;margin-top:12px}
+      .card{padding:14px}
+      .kpi{grid-template-columns:1fr 1fr;gap:8px}
+      .chip,.tab,.btn{font-size:1.02rem;padding:10px 14px}
+      .btn.amf,.btn.primary{min-width:120px}
+      .flow-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+      .flow-controls .btn.amf{grid-column:1 / -1;width:100%}
+      .stage{flex-direction:row;gap:10px;padding:12px;min-height:0}
+      .stage .badge{width:48px;height:48px;font-size:.95rem;border-radius:10px}
+      .stage p{font-size:1.08rem}
+      table{min-width:480px;font-size:1.05rem}
+      th,td{padding:11px 10px}
+      th{font-size:.9rem}
+      svg.map,svg.ladder{min-width:560px}
+      .note{font-size:1.08rem;padding:14px}
+      .row label.footer{width:100%;font-size:1rem}
+      .map-wrap,.ladder-wrap{padding:8px;border-radius:10px}
+      h1{margin-bottom:10px;font-size:1.65rem}
+      h2{font-size:1.35rem}
+      h3{font-size:1.15rem}
+      .amf-role-list{font-size:1.1rem}
+      .section-label{font-size:.95rem}
+      .brand{font-size:1.1rem}
+    }
+
+    @media (max-width:400px){
+      .kpi{grid-template-columns:1fr}
+      .brand{font-size:1.02rem}
+      .menu-toggle span.label{display:none}
+      :root{ --fs-body: 1.1rem; }
+    }
+
+    @media (hover:none) and (pointer:coarse){
+      .nav .links button:hover,.chip:hover,.tab:hover,.btn:hover:not(:disabled){/* no sticky hover on touch */}
+      .layer:hover{border-color:var(--line);background:var(--panel-2)}
+      .layer.active{border-color:rgba(61,139,253,.5);background:#1d2838}
+    }
+
+    @media (min-width:961px){
+      body.menu-open{overflow:auto}
+      body.menu-open .nav-backdrop{display:none}
+    }
+  </style>
+</head>
+<body>
+<button class="nav-backdrop" id="nav-backdrop" type="button" aria-label="Close menu"></button>
+<div class="app">
+  <aside class="nav" id="site-nav">
+    <div class="nav-top">
+      <div class="brand">5G Core Learning Pack<small>AMF animated flows · offline · shareable</small></div>
+      <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="nav-links">
+        <span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="label">Menu</span>
+      </button>
+    </div>
+    <div class="links" id="nav-links">
+      <button data-view="home" class="active" type="button">Overview</button>
+      <button data-view="amf" class="hot" type="button">AMF deep dive</button>
+      <button data-view="flows" class="hot" type="button">AMF animated flows</button>
+      <button data-view="arch" type="button">Architecture</button>
+      <button data-view="layers" type="button">Layers & protocols</button>
+      <button data-view="core" type="button">Core deep dive</button>
+      <button data-view="share" type="button">How to share</button>
+    </div>
+    <p class="footer">3GPP 23.501 / 23.502 / 24.501 / 38.413</p>
+  </aside>
+
+  <main class="main">
+    <p class="section-label" id="section-label">Overview</p>
+    <!-- HOME -->
+    <section class="view active" id="view-home">
+      <h1>5G Core + AMF call-flow pack</h1>
+      <p class="lead">This update focuses on the <strong style="color:#ffd27a">AMF</strong>: what it owns, which protocols it terminates, and animated message-by-message flows where the AMF is the hub (registration, identity, service request, deregistration, PDU session relay).</p>
+      <div class="kpi">
+        <div class="card"><strong>N1</strong><span>NAS with UE</span></div>
+        <div class="card"><strong>N2</strong><span>NGAP with gNB</span></div>
+        <div class="card"><strong>N11</strong><span>SMF session relay</span></div>
+        <div class="card"><strong>N8/N12</strong><span>UDM / AUSF</span></div>
+      </div>
+      <div class="panel note amf">
+        Go to <strong style="color:#ffd27a">AMF animated flows</strong>, choose <em>Initial Registration (AMF)</em>, press <strong>Play animation</strong>.
+        You will see: (1) AMF stage banner, (2) topology with a moving orange packet on N2/N12/N8…, (3) ladder diagram advancing step-by-step.
+      </div>
+    </section>
+
+    <!-- AMF DEEP DIVE -->
+    <section class="view" id="view-amf">
+      <h1>AMF — Access & Mobility Management Function</h1>
+      <p class="lead">The AMF is the single control-plane contact for a UE in the 5G Core for access and mobility. It terminates NAS (N1) and NGAP (N2). It does <em>not</em> own the PDU session — that is SMF — but it always relays session NAS and coordinates N2 resource setup.</p>
+
+      <div class="panel">
+        <h2>What the AMF is responsible for</h2>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Owns</h3>
+            <ul class="amf-role-list">
+              <li>Registration / deregistration / mobility registration update</li>
+              <li>Connection management (CM-IDLE ↔ CM-CONNECTED)</li>
+              <li>Reachability: Registration Area, paging, TAI list</li>
+              <li>NAS security context (after AUSF authentication)</li>
+              <li>UE context toward RAN (Initial Context Setup, handover signalling)</li>
+              <li>Selecting / discovering SMF, AUSF, UDM, PCF, NSSF (via NRF)</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Does not own</h3>
+            <ul class="amf-role-list">
+              <li>IP address allocation (SMF / UPF)</li>
+              <li>PFCP rules on UPF (SMF on N4)</li>
+              <li>User-plane forwarding (UPF on N3/N6)</li>
+              <li>Long-term subscriber key (UDM / ARPF)</li>
+              <li>Final PCC decision (PCF) — AMF may get AM/UE policy only</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>AMF interfaces (must-know)</h2>
+        <table>
+          <thead><tr><th>Ref</th><th>Peer</th><th>Protocol</th><th>AMF role</th></tr></thead>
+          <tbody>
+            <tr><td>N1</td><td>UE</td><td>5GMM / 5GSM NAS</td><td>Terminate 5GMM; transparently relay 5GSM to SMF</td></tr>
+            <tr><td>N2</td><td>gNB</td><td>NGAP / SCTP</td><td>UE context, NAS transport, paging, HO, PDU resource setup</td></tr>
+            <tr><td>N8</td><td>UDM</td><td>HTTP/2 SBI</td><td>Subscription (AM data), UECM registration as serving AMF</td></tr>
+            <tr><td>N11</td><td>SMF</td><td>HTTP/2 SBI</td><td>Create/Update/Release SM context; N1N2 transfer</td></tr>
+            <tr><td>N12</td><td>AUSF</td><td>HTTP/2 SBI</td><td>Primary authentication</td></tr>
+            <tr><td>N14</td><td>AMF</td><td>HTTP/2 SBI</td><td>Inter-AMF mobility / context transfer</td></tr>
+            <tr><td>N15</td><td>PCF</td><td>HTTP/2 SBI</td><td>Access & mobility policy, UE policy</td></tr>
+            <tr><td>N22</td><td>NSSF</td><td>HTTP/2 SBI</td><td>Slice / AMF set selection</td></tr>
+            <tr><td>—</td><td>NRF</td><td>HTTP/2 SBI</td><td>Discover AUSF/SMF/UDM/PCF instances</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>AMF state machines (short)</h2>
+        <div class="grid-3">
+          <div class="card"><h3>RM — Registration</h3><p><span class="mono">RM-DEREGISTERED</span> → after Accept → <span class="mono">RM-REGISTERED</span>. Holds Registration Area (list of TAs) and 5G-GUTI.</p></div>
+          <div class="card"><h3>CM — Connection</h3><p><span class="mono">CM-IDLE</span>: no N2 UE association; paging needed. <span class="mono">CM-CONNECTED</span>: NGAP UE context exists; NAS can flow anytime.</p></div>
+          <div class="card"><h3>Security</h3><p>After 5G-AKA + SMC, AMF holds K<sub>AMF</sub>-derived NAS keys. ngKSI identifies the context.</p></div>
+        </div>
+        <div class="note amf">Open <strong>AMF animated flows</strong> to watch these states change during Initial Registration and Service Request.</div>
+      </div>
+
+      <div class="panel">
+        <h2>NAS message groups the AMF handles</h2>
+        <table>
+          <thead><tr><th>5GMM procedure</th><th>Main messages</th><th>Why AMF cares</th></tr></thead>
+          <tbody>
+            <tr><td>Registration</td><td>Registration Request / Accept / Complete / Reject</td><td>Creates UE context, GUTI, allowed NSSAI</td></tr>
+            <tr><td>Authentication / SMC</td><td>Auth Request/Response, SMC / Complete</td><td>Builds NAS security with AUSF help</td></tr>
+            <tr><td>Identity</td><td>Identity Request / Response</td><td>Ask SUCI / PEI when needed</td></tr>
+            <tr><td>Service Request</td><td>Service Request / Accept / Reject</td><td>Idle → Connected; reactivate user plane</td></tr>
+            <tr><td>Deregistration</td><td>Deregistration Request / Accept</td><td>Clear UECM in UDM, release SM contexts</td></tr>
+            <tr><td>Configuration Update</td><td>Configuration Update Command</td><td>New GUTI, TAI list, NSSAI, network name</td></tr>
+            <tr><td>UL / DL NAS Transport</td><td>containers for 5GSM</td><td>Relay PDU session signalling to/from SMF</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ANIMATED FLOWS -->
+    <section class="view" id="view-flows">
+      <h1>AMF animated call flows</h1>
+      <p class="lead">Each step updates three views together: <strong style="color:#ffd27a">AMF stage</strong>, <strong>topology packet animation</strong>, and <strong>ladder diagram</strong>. Press <em>Play animation</em> or step with ← →.</p>
+
+      <div class="panel">
+        <div class="row" id="flow-tabs" style="margin-bottom:12px"></div>
+
+        <div class="stage" id="amf-stage">
+          <div class="badge">AMF</div>
+          <div>
+            <h3 id="stage-title">Ready</h3>
+            <p id="stage-body">Select a flow and press Play animation.</p>
+          </div>
+        </div>
+
+        <div class="row flow-controls" style="margin-bottom:8px">
+          <button class="btn" id="flow-prev" type="button">Previous</button>
+          <button class="btn" id="flow-next" type="button">Next</button>
+          <button class="btn amf" id="flow-play" type="button">Play animation</button>
+          <button class="btn" id="flow-reset" type="button">Reset</button>
+          <label class="footer" style="margin:0;display:flex;gap:6px;align-items:center">
+            Speed
+            <select id="flow-speed" style="background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px">
+              <option value="2200">Slow</option>
+              <option value="1500" selected>Normal</option>
+              <option value="900">Fast</option>
+            </select>
+          </label>
+          <span class="footer" id="flow-status"></span>
+        </div>
+        <div class="progress"><i id="flow-bar"></i></div>
+        <div class="timeline" id="flow-dots"></div>
+
+        <h3 style="margin-top:12px">1) Topology animation (AMF-centred)</h3>
+        <div class="map-wrap" id="flow-topo"></div>
+
+        <h3 style="margin-top:14px">2) Ladder / sequence animation</h3>
+        <div class="ladder-wrap" id="ladder-host"></div>
+
+        <div class="grid-2" style="margin-top:14px">
+          <div class="card">
+            <div class="meta amf" id="msg-iface"></div>
+            <h3 id="msg-title"></h3>
+            <p id="msg-body"></p>
+            <p id="msg-amf" style="color:#ffd27a"></p>
+          </div>
+          <div class="card">
+            <div style="color:var(--faint);font-size:.9rem;text-transform:uppercase;letter-spacing:.04em;font-weight:650">Log / IE checklist</div>
+            <p id="msg-trace" style="margin-top:6px"></p>
+            <div style="color:var(--faint);font-size:.9rem;text-transform:uppercase;letter-spacing:.04em;margin-top:10px;font-weight:650">AMF state after this step</div>
+            <p id="msg-state" style="margin-top:6px;color:var(--text)"></p>
+          </div>
+        </div>
+        <div class="note amf" id="flow-summary"></div>
+      </div>
+    </section>
+
+    <!-- ARCH -->
+    <section class="view" id="view-arch">
+      <h1>Architecture</h1>
+      <p class="lead">Click a function. AMF is highlighted in orange when selected so you can see its neighbour links.</p>
+      <div class="panel">
+        <div class="map-wrap" id="arch-map"></div>
+        <div class="row" id="nf-chips" style="margin:10px 0 14px"></div>
+        <div class="grid-2">
+          <div>
+            <h2 id="nf-name"></h2>
+            <p id="nf-role"></p>
+            <p id="nf-services"></p>
+          </div>
+          <div class="card">
+            <div class="meta" id="nf-plane"></div>
+            <div style="color:var(--faint);font-size:.9rem;text-transform:uppercase;font-weight:650">LTE counterpart</div>
+            <p style="color:var(--text);font-weight:650;margin:4px 0 12px;font-size:1.08rem" id="nf-replaces"></p>
+            <div style="color:var(--faint);font-size:.9rem;text-transform:uppercase;font-weight:650">Peers</div>
+            <p style="margin:4px 0 0" id="nf-peers"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LAYERS -->
+    <section class="view" id="view-layers">
+      <h1>Layers & protocols</h1>
+      <p class="lead">Especially for AMF: N1 NAS and N2 NGAP are the two stacks it terminates. SBI is how it calls AUSF/UDM/SMF.</p>
+      <div class="panel">
+        <div class="row" id="iface-tabs" style="margin-bottom:12px"></div>
+        <div class="grid-2">
+          <div class="stack" id="layer-stack"></div>
+          <div class="card">
+            <div class="meta" id="ld-iface"></div>
+            <h2 id="ld-name"></h2>
+            <p id="ld-desc"></p>
+            <div id="ld-protos"></div>
+            <div class="note" id="ld-tip"></div>
+          </div>
+        </div>
+        <h2 style="margin-top:16px">Protocol cheat sheet</h2>
+        <table>
+          <thead><tr><th>Protocol</th><th>Where</th><th>Plane</th><th>Job</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">NAS 5GMM/5GSM</td><td>N1</td><td>Control</td><td>AMF terminates 5GMM; relays 5GSM</td></tr>
+            <tr><td class="mono">NGAP</td><td>N2</td><td>Control</td><td>AMF↔gNB UE context & NAS transport</td></tr>
+            <tr><td class="mono">SCTP</td><td>under NGAP</td><td>Transport</td><td>Reliable multi-stream N2</td></tr>
+            <tr><td class="mono">PFCP</td><td>N4</td><td>CP→UP</td><td>SMF programs UPF (not AMF)</td></tr>
+            <tr><td class="mono">GTP-U</td><td>N3/N9</td><td>User</td><td>User packets (not AMF)</td></tr>
+            <tr><td class="mono">HTTP/2 JSON</td><td>SBI</td><td>Control</td><td>Namf / Nsmf / Nudm / Nausf…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CORE -->
+    <section class="view" id="view-core">
+      <h1>Core deep dive</h1>
+      <div class="panel">
+        <h2>Identity & security</h2>
+        <table>
+          <thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>SUPI / SUCI</td><td>Permanent id / concealed form on air</td></tr>
+            <tr><td>5G-GUTI / GUAMI</td><td>Temporary id; GUAMI points to the AMF</td></tr>
+            <tr><td>5G-AKA</td><td>Primary auth via AUSF; AMF runs NAS challenge exchange</td></tr>
+            <tr><td>K<sub>AMF</sub></td><td>Key used to derive NAS integrity/enc keys at AMF</td></tr>
+            <tr><td>ngKSI</td><td>Key set identifier in NAS security</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <h2>Session / QoS / UP</h2>
+        <div class="grid-3">
+          <div class="card"><h3>PDU session</h3><p>UE↔DNN association. AMF selects SMF; SMF owns it.</p></div>
+          <div class="card"><h3>QoS flow / 5QI</h3><p>QFI inside the session. AMF only transports N2 SM info from SMF.</p></div>
+          <div class="card"><h3>N3 GTP-U</h3><p>gNB↔UPF tunnel. AMF never sees user IP payload.</p></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Slicing & SBA</h2>
+        <p>S-NSSAI selects slice. AMF often common across slices; SMF/UPF may be slice-specific. NRF discovers NFs; SCP (Rel-16) can proxy SBI; SEPP protects inter-PLMN N32.</p>
+      </div>
+      <div class="panel">
+        <h2>Reference points</h2>
+        <table>
+          <thead><tr><th>Ref</th><th>Between</th><th>Protocol</th></tr></thead>
+          <tbody>
+            <tr><td>N1</td><td>UE–AMF</td><td>NAS</td></tr>
+            <tr><td>N2</td><td>gNB–AMF</td><td>NGAP/SCTP</td></tr>
+            <tr><td>N3</td><td>gNB–UPF</td><td>GTP-U</td></tr>
+            <tr><td>N4</td><td>SMF–UPF</td><td>PFCP</td></tr>
+            <tr><td>N6</td><td>UPF–DN</td><td>IP</td></tr>
+            <tr><td>N11</td><td>AMF–SMF</td><td>HTTP/2</td></tr>
+            <tr><td>N8/N12</td><td>AMF–UDM/AUSF</td><td>HTTP/2</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SHARE -->
+    <section class="view" id="view-share">
+      <h1>How to open & share</h1>
+      <div class="panel">
+        <div class="share-box">
+          <h2 style="margin-top:0">Open in Chrome</h2>
+          <p>Double-click the HTML, or drag it into Chrome. Offline, no install.</p>
+          <p class="mono" id="file-path" style="color:var(--accent-2)"></p>
+        </div>
+        <div class="grid-2" style="margin-top:14px">
+          <div class="card"><h3>Share one file</h3><p>Send <span class="mono">5G-Core-Learning-Pack.html</span> on Teams/email/USB.</p></div>
+          <div class="card"><h3>Share zip</h3><p>Send <span class="mono">5G-Core-Learning-Pack.zip</span> if .html is blocked.</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const NFS=[
+  {id:"ue",short:"UE",name:"User Equipment",plane:"Access",replaces:"LTE UE",role:"Device. NAS to AMF; user packets via gNB/UPF.",services:"SUPI as SUCI; then 5G-GUTI.",peers:"gNB Uu; AMF N1"},
+  {id:"gnb",short:"gNB",name:"NG-RAN",plane:"Access",replaces:"eNB",role:"Radio + NGAP + GTP-U.",services:"Selects AMF; maps QoS flows to DRBs.",peers:"AMF N2; UPF N3"},
+  {id:"amf",short:"AMF",name:"Access & Mobility Management Function",plane:"Control",replaces:"MME (access/mob)",role:"UE CP anchor for access/mobility/NAS security. Relays sessions to SMF.",services:"Namf_Communication / EventExposure.",peers:"gNB N2; SMF N11; AUSF N12; UDM N8; PCF N15; NSSF N22"},
+  {id:"smf",short:"SMF",name:"Session Management Function",plane:"Control",replaces:"SGW-C+PGW-C",role:"Owns PDU session; programs UPF.",services:"Nsmf_PDUSession.",peers:"AMF N11; UPF N4; PCF N7; UDM N10"},
+  {id:"upf",short:"UPF",name:"User Plane Function",plane:"User",replaces:"SGW-U+PGW-U",role:"Forwards packets; N6 anchor.",services:"PFCP controlled by SMF.",peers:"gNB N3; SMF N4; DN N6"},
+  {id:"ausf",short:"AUSF",name:"Authentication Server Function",plane:"Control",replaces:"HSS auth",role:"Home auth (5G-AKA/EAP-AKA').",services:"Nausf_UEAuthentication.",peers:"AMF N12; UDM N13"},
+  {id:"udm",short:"UDM",name:"Unified Data Management",plane:"Control",replaces:"HSS FE",role:"Subscription + serving NF registration.",services:"Nudm_UECM/SDM/UEAuthentication.",peers:"AMF; SMF; AUSF; UDR"},
+  {id:"pcf",short:"PCF",name:"Policy Control Function",plane:"Control",replaces:"PCRF",role:"SM/AM/UE policy.",services:"Npcf_*PolicyControl.",peers:"SMF N7; AMF N15"},
+  {id:"nssf",short:"NSSF",name:"Network Slice Selection Function",plane:"Control",replaces:"—",role:"Slice + AMF set selection.",services:"Nnssf_NSSelection.",peers:"AMF N22"},
+  {id:"nrf",short:"NRF",name:"NF Repository Function",plane:"Control",replaces:"static peers",role:"Register/discover/OAuth.",services:"Nnrf_* .",peers:"All SBI NFs"},
+  {id:"nef",short:"NEF",name:"Network Exposure Function",plane:"Control",replaces:"SCEF",role:"Northbound exposure.",services:"Nnef_* .",peers:"AF; PCF; SMF"},
+  {id:"chf",short:"CHF",name:"Charging Function",plane:"Control",replaces:"OCS+OFCS",role:"Converged charging.",services:"Nchf_ConvergedCharging.",peers:"SMF N40"}
+];
+
+const NODES=[
+  {id:"ue",x:20,y:40},{id:"gnb",x:190,y:40},{id:"amf",x:400,y:40},{id:"ausf",x:610,y:40},{id:"udm",x:820,y:40},
+  {id:"nssf",x:400,y:155},{id:"smf",x:610,y:155},{id:"pcf",x:820,y:155},
+  {id:"upf",x:190,y:275},{id:"dn",x:20,y:275}
+];
+const LINKS=[["ue","gnb","Uu"],["gnb","amf","N2"],["gnb","upf","N3"],["amf","ausf","N12"],["amf","udm","N8"],["amf","nssf","N22"],["amf","smf","N11"],["amf","pcf","N15"],["ausf","udm","N13"],["smf","udm","N10"],["smf","pcf","N7"],["smf","upf","N4"],["upf","dn","N6"]];
+const BW=140,BH=46;
+const center=id=>{const n=NODES.find(x=>x.id===id);return{x:n.x+BW/2,y:n.y+BH/2}};
+
+/* ===== AMF-CENTRIC FLOWS (richer) ===== */
+const FLOWS={
+  amfReg:{
+    name:"Initial Registration (AMF)",
+    group:"amf",
+    summary:"Full initial registration with AMF as hub: N2 intake → optional Identity → AUSF auth → SMC → UDM subscription/UECM → optional NSSF → Registration Accept. No N3 needed to finish.",
+    actors:["UE","gNB","AMF","AUSF","UDM","NSSF"],
+    msgs:[
+      {from:"UE",to:"gNB",map:["ue","gnb"],iface:"Uu · RRC+NAS",title:"RRC Setup + Registration Request",
+        body:"UE sends Registration Request (initial). Identity is SUCI (or GUTI if any). Includes UE security capability, requested NSSAI, and 5GMM capability.",
+        amf:"AMF not yet in path — gNB must select an AMF (NSSF/NRF/GUAMI/default).",
+        trace:"Registration type=initial, SUCI, Requested NSSAI, UE sec caps.",
+        state:"RM-DEREGISTERED · no AMF UE context", stage:"Waiting for Initial UE Message from gNB"},
+      {from:"gNB",to:"AMF",map:["gnb","amf"],iface:"N2 · NGAP",title:"Initial UE Message (NAS inside)",
+        body:"gNB creates RAN UE NGAP ID and forwards NAS Registration Request in NGAP Initial UE Message with User Location and RRC establishment cause.",
+        amf:"AMF allocates AMF UE NGAP ID, starts registration procedure, may discover AUSF via NRF.",
+        trace:"NGAP InitialUEMessage, RAN-UE-NGAP-ID, NAS-PDU.",
+        state:"AMF: registration pending · CM toward CONNECTED on N2", stage:"AMF received Registration Request — start procedure"},
+      {from:"AMF",to:"UE",map:["amf","gnb","ue"],iface:"N1 · NAS (via N2)",title:"Identity Request (if needed)",
+        body:"If SUCI cannot be decrypted / GUTI unknown / PEI needed, AMF asks Identity Request (SUCI or PEI).",
+        amf:"AMF controls identity interrogation before or during auth.",
+        trace:"Identity Request (type SUCI/PEI) → Identity Response.",
+        state:"Still unauthenticated", stage:"AMF interrogates UE identity"},
+      {from:"AMF",to:"AUSF",map:["amf","ausf"],iface:"N12 · SBI",title:"Nausf Authenticate Request",
+        body:"AMF sends SUCI/SUPI + serving network name to AUSF to start 5G-AKA (or EAP-AKA').",
+        amf:"AMF is SEAF (security anchor function) in serving network.",
+        trace:"Nausf_UEAuthentication_Authenticate (SUCI, SN-name).",
+        state:"Auth pending", stage:"AMF asks AUSF to authenticate UE"},
+      {from:"AUSF",to:"UDM",map:["ausf","udm"],iface:"N13 · SBI",title:"Get authentication vector",
+        body:"AUSF fetches auth data from UDM (ARPF). UDM may de-conceal SUCI.",
+        amf:"AMF waits; long-term key never leaves UDM/ARPF toward AMF.",
+        trace:"Nudm_UEAuthentication_Get / Confirm.",
+        state:"Auth pending", stage:"Home network prepares auth vector"},
+      {from:"AMF",to:"UE",map:["amf","gnb","ue"],iface:"N1 · NAS",title:"Authentication Request",
+        body:"AMF sends RAND, AUTN (and maybe EAP payload) to UE. UE verifies AUTN and computes RES*.",
+        amf:"AMF transports challenge; does not hold K permanently.",
+        trace:"Authentication Request (RAND, AUTN, ngKSI).",
+        state:"Challenge sent", stage:"AMF challenges the UE (5G-AKA)"},
+      {from:"UE",to:"AMF",map:["ue","gnb","amf"],iface:"N1 · NAS",title:"Authentication Response",
+        body:"UE returns RES*. AMF forwards to AUSF for confirmation. On success, KAUSF/KSEAF material leads to KAMF.",
+        amf:"AMF derives NAS keys from KAMF after AUSF success indication.",
+        trace:"Authentication Response (RES*) + AUSF confirmation.",
+        state:"Authenticated · keys pending SMC", stage:"AMF validates RES* with AUSF"},
+      {from:"AMF",to:"UE",map:["amf","gnb","ue"],iface:"N1 · NAS",title:"Security Mode Command / Complete",
+        body:"AMF selects NAS integrity & ciphering algorithms, sends SMC. UE answers SMC Complete (now integrity protected).",
+        amf:"From here all NAS is secure. AMF stores NAS security context.",
+        trace:"Security Mode Command (replayed UA capabilities, algos) / Complete.",
+        state:"NAS security active", stage:"AMF activates NAS security (SMC)"},
+      {from:"AMF",to:"UDM",map:["amf","udm"],iface:"N8 · SBI",title:"Get AM subscription + UECM register",
+        body:"AMF retrieves Access and Mobility subscription data and registers itself as serving AMF for this SUPI.",
+        amf:"Critical: other AMFs / SMS / etc. find this AMF via UDM UECM.",
+        trace:"Nudm_SDM_Get (AM data); Nudm_UECM_Registration.",
+        state:"Subscription loaded · serving AMF registered", stage:"AMF loads subscription & registers in UDM"},
+      {from:"AMF",to:"NSSF",map:["amf","nssf"],iface:"N22 · SBI",title:"Network slice selection",
+        body:"If needed, AMF queries NSSF with requested NSSAI, TAI, SUPI → Allowed NSSAI / NRF AMF set / slice instance.",
+        amf:"AMF may re-route to another AMF set if NSSF says so (rarely mid-procedure).",
+        trace:"Nnssf_NSSelection_Get.",
+        state:"Allowed NSSAI decided", stage:"AMF confirms slice (NSSF)"},
+      {from:"AMF",to:"PCF",map:["amf","pcf"],iface:"N15 · SBI",title:"AM / UE policy association (optional)",
+        body:"AMF may establish AM policy association and retrieve UE policy (URSP) for later delivery.",
+        amf:"Policy is optional in many lab setups but present in operator networks.",
+        trace:"Npcf_AMPolicyControl_Create; UE policy.",
+        state:"Policy associated (if used)", stage:"AMF fetches access/UE policy from PCF"},
+      {from:"AMF",to:"UE",map:["amf","gnb","ue"],iface:"N1 · NAS",title:"Registration Accept (+ Complete)",
+        body:"AMF sends 5G-GUTI, Allowed NSSAI, TAI list, Negotiated DRX, etc. UE returns Registration Complete. Optional Configuration Update for new GUTI.",
+        amf:"UE is RM-REGISTERED. AMF can now page / handle Service Request / relay PDU sessions.",
+        trace:"Registration Accept IEs + Registration Complete.",
+        state:"RM-REGISTERED · CM-CONNECTED · secure", stage:"AMF accepts registration — UE is reachable"}
+    ]
+  },
+  amfSvc:{
+    name:"Service Request (AMF)",
+    group:"amf",
+    summary:"UE in CM-IDLE becomes CM-CONNECTED. AMF pages (if MT), accepts Service Request, runs Initial Context Setup, and asks SMF to re-activate N3.",
+    actors:["UE","gNB","AMF","SMF","UPF"],
+    msgs:[
+      {from:"UPF",to:"SMF",map:["upf","smf"],iface:"N4 · PFCP",title:"Downlink Data Notification",body:"DL packet arrives while UE idle; UPF reports to SMF.",amf:"AMF not yet involved.",trace:"PFCP Session Report (DDN).",state:"UE CM-IDLE",stage:"Downlink data while UE idle"},
+      {from:"SMF",to:"AMF",map:["smf","amf"],iface:"N11 · SBI",title:"N1N2MessageTransfer (paging)",body:"SMF asks AMF to reach the UE.",amf:"AMF starts paging in Registration Area.",trace:"Namf_Communication_N1N2MessageTransfer.",state:"Paging triggered",stage:"AMF must page the UE"},
+      {from:"AMF",to:"gNB",map:["amf","gnb"],iface:"N2 · NGAP",title:"Paging",body:"AMF pages via NG-RAN using 5G-S-TMSI / UE identity index.",amf:"AMF is paging controller.",trace:"NGAP Paging.",state:"Paging ongoing",stage:"AMF pages via gNB"},
+      {from:"UE",to:"AMF",map:["ue","gnb","amf"],iface:"N1 · NAS",title:"Service Request",body:"UE sends Service Request (MO or MT). May list PDU sessions to activate.",amf:"AMF authenticates NAS MAC, decides accept.",trace:"Service Request + PDU session status.",state:"Service Request received",stage:"AMF receives Service Request"},
+      {from:"AMF",to:"gNB",map:["amf","gnb"],iface:"N2 · NGAP",title:"Initial Context Setup",body:"AMF provides security context and PDU session resource setup lists from SMF.",amf:"AMF rebuilds NGAP UE context.",trace:"InitialContextSetupRequest.",state:"CM-CONNECTED establishing",stage:"AMF restores UE context on N2"},
+      {from:"AMF",to:"SMF",map:["amf","smf"],iface:"N11 · SBI",title:"Update SM Context",body:"AMF asks SMF to reactivate user plane for listed PDU sessions.",amf:"AMF coordinates; SMF updates UPF.",trace:"Nsmf_PDUSession_UpdateSMContext.",state:"UP reactivation requested",stage:"AMF asks SMF to bring N3 up"},
+      {from:"SMF",to:"UPF",map:["smf","upf"],iface:"N4 · PFCP",title:"PFCP Modification",body:"UPF gets new gNB TEID; buffered DL can flush.",amf:"AMF waits for SMF result then sends Service Accept.",trace:"PFCP Session Modification.",state:"CM-CONNECTED · UP active",stage:"User plane restored — AMF completes Service Accept"}
+    ]
+  },
+  amfPdu:{
+    name:"PDU Session via AMF",
+    group:"amf",
+    summary:"AMF view of PDU session establishment: it does not program UPF, but it selects SMF, relays NAS, and drives N2 PDU Session Resource Setup.",
+    actors:["UE","gNB","AMF","SMF","UPF","PCF"],
+    msgs:[
+      {from:"UE",to:"AMF",map:["ue","gnb","amf"],iface:"N1 · NAS",title:"UL NAS Transport (PDU Session Request)",body:"5GSM PDU Session Establishment Request inside UL NAS Transport.",amf:"AMF parses DNN/S-NSSAI, selects SMF (NRF).",trace:"UL NAS Transport + PSI/DNN/S-NSSAI.",state:"Session request at AMF",stage:"AMF receives PDU Session Request"},
+      {from:"AMF",to:"SMF",map:["amf","smf"],iface:"N11 · SBI",title:"Create SM Context",body:"AMF forwards request; creates AMF–SMF association for this PSI.",amf:"AMF stores SMF ID for this PDU session.",trace:"Nsmf_PDUSession_CreateSMContext.",state:"SM context creating",stage:"AMF selects SMF & creates SM context"},
+      {from:"SMF",to:"PCF",map:["smf","pcf"],iface:"N7 · SBI",title:"SM Policy",body:"SMF gets PCC rules.",amf:"AMF idle on this hop.",trace:"Npcf_SMPolicyControl_Create.",state:"Policy pending at SMF",stage:"SMF gets policy (AMF waiting)"},
+      {from:"SMF",to:"UPF",map:["smf","upf"],iface:"N4 · PFCP",title:"PFCP Session Est.",body:"UPF N3 TEID allocated.",amf:"AMF still waiting for N1N2 transfer.",trace:"PFCP Session Establishment.",state:"UPF ready",stage:"SMF programs UPF"},
+      {from:"SMF",to:"AMF",map:["smf","amf"],iface:"N11 · SBI",title:"N1N2MessageTransfer",body:"SMF gives N2 SM Info + N1 Accept container.",amf:"AMF must send both toward RAN/UE.",trace:"Namf_Communication_N1N2MessageTransfer.",state:"AMF has N2/N1 payloads",stage:"AMF receives N2 SM info from SMF"},
+      {from:"AMF",to:"gNB",map:["amf","gnb"],iface:"N2 · NGAP",title:"PDU Session Resource Setup",body:"gNB sets DRBs, returns N3 TEID.",amf:"AMF is NGAP procedure owner.",trace:"PDUSessionResourceSetupRequest/Response.",state:"RAN resources up",stage:"AMF runs PDU Session Resource Setup on N2"},
+      {from:"AMF",to:"SMF",map:["amf","smf"],iface:"N11 · SBI",title:"Update SM Context (gNB TEID)",body:"AMF returns RAN tunnel info.",amf:"Closes the loop so SMF can update UPF FAR.",trace:"Nsmf_PDUSession_UpdateSMContext.",state:"Forwarding to SMF",stage:"AMF returns gNB tunnel to SMF"},
+      {from:"AMF",to:"UE",map:["amf","gnb","ue"],iface:"N1 · NAS",title:"DL NAS Transport (Accept)",body:"PDU Session Establishment Accept delivered to UE.",amf:"AMF is NAS transporter for 5GSM accept.",trace:"PDU Session Establishment Accept.",state:"PDU session active",stage:"AMF delivers Accept to UE"}
+    ]
+  },
+  amfDeReg:{
+    name:"Deregistration (AMF)",
+    group:"amf",
+    summary:"UE- or network-initiated deregistration. AMF releases SM contexts, clears UDM UECM, and drops NAS/N2 context.",
+    actors:["UE","gNB","AMF","SMF","UDM"],
+    msgs:[
+      {from:"UE",to:"AMF",map:["ue","gnb","amf"],iface:"N1 · NAS",title:"Deregistration Request",body:"UE asks to deregister (switch-off / disable 5GS).",amf:"AMF starts release procedures.",trace:"Deregistration Request (switch-off flag).",state:"Deregistering",stage:"AMF receives Deregistration Request"},
+      {from:"AMF",to:"SMF",map:["amf","smf"],iface:"N11 · SBI",title:"Release SM contexts",body:"AMF asks each SMF to release PDU sessions.",amf:"AMF iterates SM context list.",trace:"Nsmf_PDUSession_ReleaseSMContext.",state:"Sessions releasing",stage:"AMF releases sessions at SMF"},
+      {from:"AMF",to:"UDM",map:["amf","udm"],iface:"N8 · SBI",title:"UECM Deregistration",body:"AMF unregisters as serving AMF in UDM.",amf:"SUPI no longer points to this AMF.",trace:"Nudm_UECM_Deregistration.",state:"Not serving AMF",stage:"AMF clears itself in UDM"},
+      {from:"AMF",to:"UE",map:["amf","gnb","ue"],iface:"N1 · NAS",title:"Deregistration Accept",body:"Unless switch-off, AMF sends Accept. Then UE Context Release on N2.",amf:"AMF deletes UE context locally.",trace:"Deregistration Accept + UEContextReleaseCommand.",state:"RM-DEREGISTERED",stage:"AMF finishes deregistration"}
+    ]
+  },
+  session:{
+    name:"PDU Session (full CP/UP)",
+    group:"core",
+    summary:"End-to-end session setup including SMF/UPF details (AMF still in the path).",
+    actors:["UE","gNB","AMF","SMF","UDM","PCF","UPF"],
+    msgs:[
+      {from:"UE",to:"AMF",map:["ue","gnb","amf"],iface:"N1",title:"PDU Session Request",body:"UE asks for DNN/slice session.",amf:"AMF picks SMF.",trace:"PDU Session Establishment Request.",state:"—",stage:"Session request enters via AMF"},
+      {from:"AMF",to:"SMF",map:["amf","smf"],iface:"N11",title:"Create SM Context",body:"AMF→SMF.",amf:"Context created.",trace:"CreateSMContext.",state:"—",stage:"AMF → SMF"},
+      {from:"SMF",to:"UDM",map:["smf","udm"],iface:"N10",title:"SM subscription",body:"Authorize DNN/slice.",amf:"Waiting.",trace:"Nudm_SDM_Get.",state:"—",stage:"SMF reads UDM"},
+      {from:"SMF",to:"PCF",map:["smf","pcf"],iface:"N7",title:"Policy",body:"PCC rules.",amf:"Waiting.",trace:"Npcf_SMPolicyControl_Create.",state:"—",stage:"SMF ↔ PCF"},
+      {from:"SMF",to:"UPF",map:["smf","upf"],iface:"N4",title:"PFCP Est.",body:"Install PDR/FAR.",amf:"Waiting.",trace:"PFCP Session Establishment.",state:"—",stage:"SMF programs UPF"},
+      {from:"SMF",to:"AMF",map:["smf","amf"],iface:"N11",title:"N1N2 transfer",body:"N2 SM info + N1 accept.",amf:"Must execute N2 + N1.",trace:"N1N2MessageTransfer.",state:"—",stage:"Back to AMF"},
+      {from:"AMF",to:"gNB",map:["amf","gnb"],iface:"N2",title:"Resource Setup",body:"DRB + N3.",amf:"NGAP owner.",trace:"PDUSessionResourceSetup.",state:"—",stage:"AMF ↔ gNB"},
+      {from:"AMF",to:"UE",map:["amf","gnb","ue"],iface:"N1",title:"Accept",body:"UE gets IP/QoS.",amf:"Done.",trace:"PDU Session Establishment Accept.",state:"—",stage:"UE accepted"}
+    ]
+  },
+  xnho:{
+    name:"Xn Handover",
+    group:"core",
+    summary:"Xn HO with AMF Path Switch and SMF/UPF N3 update.",
+    actors:["UE","S-gNB","T-gNB","AMF","SMF","UPF"],
+    msgs:[
+      {from:"S-gNB",to:"T-gNB",map:["gnb","gnb"],iface:"Xn",title:"HO Request/Ack",body:"Prepare target.",amf:"Not yet.",trace:"XnAP HO.",state:"—",stage:"Xn prepare"},
+      {from:"S-gNB",to:"UE",map:["gnb","ue"],iface:"Uu",title:"RRC Reconfig",body:"HO command.",amf:"—",trace:"RRCReconfiguration.",state:"—",stage:"UE moves"},
+      {from:"UE",to:"T-gNB",map:["ue","gnb"],iface:"Uu",title:"Reconfig Complete",body:"UE on target.",amf:"—",trace:"RRCReconfigurationComplete.",state:"—",stage:"UE on target"},
+      {from:"T-gNB",to:"AMF",map:["gnb","amf"],iface:"N2",title:"Path Switch Request",body:"New N3 endpoint.",amf:"AMF updates SMF.",trace:"PathSwitchRequest.",state:"—",stage:"AMF Path Switch"},
+      {from:"AMF",to:"SMF",map:["amf","smf"],iface:"N11",title:"Update SM Context",body:"New gNB TEID.",amf:"Per PDU session.",trace:"UpdateSMContext.",state:"—",stage:"AMF → SMF"},
+      {from:"SMF",to:"UPF",map:["smf","upf"],iface:"N4",title:"PFCP Modify",body:"FAR → target gNB.",amf:"Almost done.",trace:"PFCP Modification.",state:"—",stage:"UPF updated"},
+      {from:"AMF",to:"T-gNB",map:["amf","gnb"],iface:"N2",title:"Path Switch Ack",body:"Confirm + release source.",amf:"HO complete.",trace:"PathSwitchRequestAcknowledge.",state:"—",stage:"AMF completes HO"}
+    ]
+  }
+};
+
+const IFACES={
+  N1:{title:"N1 — UE ↔ AMF (NAS)",layers:[
+    {name:"5GMM / 5GSM NAS",plane:"Control",desc:"Registration, auth, SMC, service request, deregistration; 5GSM relayed to SMF.",protos:["NAS"],tip:"AMF terminates 5GMM."},
+    {name:"RRC",plane:"Radio CP",desc:"Carries NAS containers.",protos:["RRC"],tip:"Idle UE needs RRC first."},
+    {name:"PDCP/RLC/MAC/PHY",plane:"Radio",desc:"Air interface stack.",protos:["PDCP","RLC","MAC","PHY"],tip:"User plane uses SDAP+PDCP too."}
+  ]},
+  N2:{title:"N2 — gNB ↔ AMF (NGAP)",layers:[
+    {name:"NGAP",plane:"Control",desc:"Initial UE Message, NAS transport, context setup, paging, HO, PDU resource setup.",protos:["NGAP"],tip:"TS 38.413 — AMF's RAN interface."},
+    {name:"SCTP",plane:"Transport",desc:"PPID 60 typically.",protos:["SCTP"],tip:"One assoc, many UEs."},
+    {name:"IP",plane:"Network",desc:"Underlay.",protos:["IP"],tip:"No user packets on N2."}
+  ]},
+  N3:{title:"N3 — gNB ↔ UPF (GTP-U)",layers:[
+    {name:"GTP-U",plane:"User",desc:"TEID tunnels + QFI.",protos:["GTP-U"],tip:"AMF does not terminate N3."},
+    {name:"UDP/IP",plane:"Transport",desc:"UDP/2152.",protos:["UDP","IP"],tip:"Same pattern on N9."}
+  ]},
+  N4:{title:"N4 — SMF ↔ UPF (PFCP)",layers:[
+    {name:"PFCP",plane:"CP→UP",desc:"PDR/FAR/QER/URR/BAR.",protos:["PFCP"],tip:"AMF never speaks PFCP."},
+    {name:"UDP/IP",plane:"Transport",desc:"UDP/8805.",protos:["UDP","IP"],tip:"TS 29.244."}
+  ]},
+  SBI:{title:"SBI — AMF ↔ other NFs",layers:[
+    {name:"NF APIs",plane:"Control",desc:"Namf, Nsmf, Nudm, Nausf, Npcf, Nnssf, Nnrf.",protos:["HTTP/2","JSON"],tip:"AMF is both consumer and producer."},
+    {name:"TLS / OAuth2",plane:"Security",desc:"mTLS + tokens from NRF.",protos:["TLS","OAuth2"],tip:"SCP optional Rel-16."}
+  ]}
+};
+
+const state={view:"home",selected:"amf",iface:"N1",layerIdx:0,flow:"amfReg",step:0,playing:false,timer:null};
+
+const VIEW_LABELS={
+  home:"Overview", amf:"AMF deep dive", flows:"AMF animated flows",
+  arch:"Architecture", layers:"Layers & protocols", core:"Core deep dive", share:"How to share"
+};
+
+function isMobileNav(){ return window.matchMedia("(max-width:960px)").matches; }
+function openMenu(){
+  document.body.classList.add("menu-open");
+  const t=document.getElementById("menu-toggle");
+  if(t){ t.setAttribute("aria-expanded","true"); t.querySelector(".label").textContent="Close"; }
+}
+function closeMenu(){
+  document.body.classList.remove("menu-open");
+  const t=document.getElementById("menu-toggle");
+  if(t){ t.setAttribute("aria-expanded","false"); t.querySelector(".label").textContent="Menu"; }
+}
+function toggleMenu(){ document.body.classList.contains("menu-open") ? closeMenu() : openMenu(); }
+
+function setView(v){
+  stopPlay(); state.view=v;
+  document.querySelectorAll(".nav .links button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("active",s.id==="view-"+v));
+  const lab=document.getElementById("section-label");
+  if(lab) lab.textContent=VIEW_LABELS[v]||v;
+  if(v==="arch") renderArch();
+  if(v==="layers") renderLayers();
+  if(v==="flows") renderFlow();
+  closeMenu();
+  if(isMobileNav()){
+    requestAnimationFrame(()=>{ window.scrollTo({top:0,behavior:"smooth"}); });
+  }
+}
+document.querySelectorAll(".nav .links button").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
+document.getElementById("menu-toggle").addEventListener("click", toggleMenu);
+document.getElementById("nav-backdrop").addEventListener("click", closeMenu);
+window.addEventListener("resize", ()=>{ if(!isMobileNav()) closeMenu(); });
+
+document.addEventListener("keydown",e=>{
+  if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName)) return;
+  if(e.key==="Escape") closeMenu();
+  const map={"1":"home","2":"amf","3":"flows","4":"arch","5":"layers","6":"core","7":"share"};
+  if(map[e.key]) setView(map[e.key]);
+  if(state.view==="flows"){
+    if(e.key==="ArrowRight") stepFlow(1);
+    if(e.key==="ArrowLeft") stepFlow(-1);
+    if(e.key===" "){e.preventDefault(); togglePlay();}
+  }
+});
+
+function buildTopo(activeIds, livePair, clickable, amfForce){
+  const links=LINKS.map(([a,b,label])=>{
+    const A=center(a),B=center(b);
+    const on=activeIds.includes(a)&&activeIds.includes(b);
+    const live=livePair && ((livePair[0]===a&&livePair[1]===b)||(livePair[0]===b&&livePair[1]===a));
+    return `<line class="edge ${live?"live":on?"on":""}" x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}"/>
+      <text class="edge-label ${live?"live":""}" x="${(A.x+B.x)/2}" y="${(A.y+B.y)/2-6}" text-anchor="middle">${label}</text>`;
+  }).join("");
+  let pkt="";
+  if(livePair){
+    const A=center(livePair[0]), B=center(livePair[1]);
+    pkt=`<circle class="pkt" r="7"><animateMotion dur="1.1s" repeatCount="indefinite" path="M${A.x},${A.y} L${B.x},${B.y}"/></circle>`;
+  }
+  const nodes=NODES.map(n=>{
+    const meta=NFS.find(x=>x.id===n.id); const label=meta?meta.short:"DN";
+    const isAmf=n.id==="amf"&&(amfForce||activeIds.includes("amf"));
+    const on=activeIds.includes(n.id);
+    const dead=n.id==="dn"||!clickable;
+    let cls="node"; if(dead) cls+=" dead"; if(isAmf) cls+=" amf-glow"; else if(on) cls+=" peer";
+    return `<g class="${cls}" data-id="${n.id}"><rect x="${n.x}" y="${n.y}" width="${BW}" height="${BH}" rx="8"/>
+      <text x="${n.x+BW/2}" y="${n.y+28}" text-anchor="middle">${label}</text></g>`;
+  }).join("");
+  return `<svg class="map" viewBox="0 0 980 350">${links}${nodes}${pkt}</svg>`;
+}
+
+function renderArch(){
+  const active=[state.selected];
+  const host=document.getElementById("arch-map");
+  host.innerHTML=buildTopo(active,null,true,state.selected==="amf");
+  host.querySelectorAll(".node:not(.dead)").forEach(g=>g.addEventListener("click",()=>{state.selected=g.dataset.id;renderArch();}));
+  const chips=document.getElementById("nf-chips");
+  chips.innerHTML=NFS.map(n=>`<button class="chip ${state.selected===n.id?"active":""}" type="button">${n.short}</button>`).join("");
+  [...chips.children].forEach((btn,i)=>btn.addEventListener("click",()=>{state.selected=NFS[i].id;renderArch();}));
+  const nf=NFS.find(n=>n.id===state.selected);
+  document.getElementById("nf-name").textContent=nf.name;
+  document.getElementById("nf-role").textContent=nf.role;
+  document.getElementById("nf-services").textContent=nf.services;
+  document.getElementById("nf-plane").textContent=nf.plane+" plane";
+  document.getElementById("nf-replaces").textContent=nf.replaces;
+  document.getElementById("nf-peers").textContent=nf.peers;
+}
+
+function renderLayers(){
+  const tabs=document.getElementById("iface-tabs");
+  const keys=Object.keys(IFACES);
+  tabs.innerHTML=keys.map(k=>`<button class="tab ${state.iface===k?"active":""}" type="button">${k}</button>`).join("");
+  [...tabs.children].forEach((btn,i)=>btn.addEventListener("click",()=>{state.iface=keys[i];state.layerIdx=0;renderLayers();}));
+  const pack=IFACES[state.iface];
+  const stack=document.getElementById("layer-stack");
+  stack.innerHTML=`<div style="color:var(--faint);font-size:.95rem;margin-bottom:6px;font-weight:650">${pack.title}</div>`+
+    pack.layers.map((L,i)=>`<div class="layer ${state.layerIdx===i?"active":""}" data-i="${i}">
+      <div class="top"><span class="name">${L.name}</span><span class="plane">${L.plane}</span></div>
+      <div class="desc">${L.desc}</div>
+      <div>${L.protos.map(p=>`<span class="proto-pill">${p}</span>`).join("")}</div></div>`).join("");
+  stack.querySelectorAll(".layer").forEach(el=>el.addEventListener("click",()=>{state.layerIdx=+el.dataset.i;renderLayers();}));
+  const L=pack.layers[state.layerIdx];
+  document.getElementById("ld-iface").textContent=state.iface;
+  document.getElementById("ld-name").textContent=L.name;
+  document.getElementById("ld-desc").textContent=L.desc;
+  document.getElementById("ld-protos").innerHTML=L.protos.map(p=>`<span class="proto-pill">${p}</span>`).join("");
+  document.getElementById("ld-tip").textContent=L.tip;
+}
+
+function stopPlay(){state.playing=false; if(state.timer){clearInterval(state.timer);state.timer=null;} const b=document.getElementById("flow-play"); if(b) b.textContent="Play animation";}
+function togglePlay(){
+  if(state.playing){stopPlay();return;}
+  state.playing=true; document.getElementById("flow-play").textContent="Pause";
+  const flow=FLOWS[state.flow]; if(state.step>=flow.msgs.length-1) state.step=0; renderFlow();
+  const ms=+document.getElementById("flow-speed").value||1500;
+  state.timer=setInterval(()=>{
+    if(state.step>=FLOWS[state.flow].msgs.length-1){stopPlay();return;}
+    state.step++; renderFlow();
+  }, ms);
+}
+function stepFlow(d){stopPlay(); const max=FLOWS[state.flow].msgs.length-1; state.step=Math.max(0,Math.min(max,state.step+d)); renderFlow();}
+
+function actorX(actors,name,width){const i=actors.indexOf(name); const gap=(width-80)/Math.max(actors.length-1,1); return 40+i*gap;}
+
+function renderLadder(){
+  const flow=FLOWS[state.flow]; const actors=flow.actors; const msgs=flow.msgs;
+  const width=Math.max(760, actors.length*120); const top=40; const rowH=48; const height=top+20+msgs.length*rowH+16;
+  let svg=`<svg class="ladder" viewBox="0 0 ${width} ${height}"><defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#ffb020"/></marker>
+    <marker id="arrow-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10z" fill="#4d6078"/></marker>
+  </defs>`;
+  actors.forEach(a=>{
+    const x=actorX(actors,a,width); const isAmf=a==="AMF";
+    svg+=`<line class="actor-line" x1="${x}" y1="${top}" x2="${x}" y2="${height-8}"/>
+      <g class="actor-box ${isAmf?"amf":""}"><rect x="${x-38}" y="6" width="76" height="26" rx="6"/><text x="${x}" y="23" text-anchor="middle">${a}</text></g>`;
+  });
+  msgs.forEach((m,i)=>{
+    const y=top+28+i*rowH; const x1=actorX(actors,m.from,width); const x2=actorX(actors,m.to,width);
+    const cls=i===state.step?"active":(i<state.step?"done":"");
+    const marker=i===state.step?"url(#arrow)":"url(#arrow-dim)";
+    svg+=`<line class="msg-line ${cls}" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" marker-end="${marker}"/>
+      <text class="msg-label ${cls}" x="${(x1+x2)/2}" y="${y-7}" text-anchor="middle">${i+1}. ${m.title}</text>`;
+    if(i===state.step){
+      svg+=`<circle class="pkt" r="5"><animateMotion dur="1.15s" repeatCount="indefinite" path="M${x1},${y} L${x2},${y}"/></circle>`;
+    }
+  });
+  return svg+`</svg>`;
+}
+
+function mapIdsForMsg(msg){
+  // Prefer explicit map; fallback to actor name lowercasing for known nodes
+  if(msg.map&&msg.map.length) return msg.map.filter(id=>NODES.some(n=>n.id===id));
+  return [];
+}
+function livePairForMsg(msg){
+  const ids=mapIdsForMsg(msg);
+  // pick first edge that exists in LINKS between consecutive highlighted nodes
+  for(let i=0;i<ids.length-1;i++){
+    const a=ids[i], b=ids[i+1];
+    if(LINKS.some(([x,y])=>(x===a&&y===b)||(x===b&&y===a))) return [a,b];
+  }
+  // special: amf-pcf not in LINKS — add virtual highlight using amf only
+  if(msg.from==="AMF"&&msg.to==="PCF") return ["amf","pcf"];
+  if(msg.from==="AMF"&&msg.to==="UE") return ["amf","gnb"];
+  if(msg.from==="UE"&&msg.to==="AMF") return ["gnb","amf"];
+  return ids.length>=2?[ids[0],ids[1]]:null;
+}
+
+function renderFlow(){
+  const keys=Object.keys(FLOWS);
+  const tabs=document.getElementById("flow-tabs");
+  tabs.innerHTML=keys.map(k=>{
+    const f=FLOWS[k]; const amf=f.group==="amf";
+    return `<button class="tab ${amf?"amf-tab":""} ${state.flow===k?"active":""}" type="button">${f.name}</button>`;
+  }).join("");
+  [...tabs.children].forEach((btn,i)=>btn.addEventListener("click",()=>{stopPlay();state.flow=keys[i];state.step=0;renderFlow();}));
+
+  const flow=FLOWS[state.flow];
+  if(state.step>flow.msgs.length-1) state.step=0;
+  const msg=flow.msgs[state.step];
+  const active=mapIdsForMsg(msg);
+  if(!active.includes("amf") && (msg.from==="AMF"||msg.to==="AMF"||(msg.amf||"").toLowerCase().includes("amf"))) active.push("amf");
+  const live=livePairForMsg(msg);
+
+  // Extra PCF node drawing: temporarily inject if needed
+  document.getElementById("flow-topo").innerHTML=buildTopo(active.length?active:["amf"], live, false, true);
+  document.getElementById("ladder-host").innerHTML=renderLadder();
+
+  document.getElementById("stage-title").textContent=`Step ${state.step+1}/${flow.msgs.length}: ${msg.stage||msg.title}`;
+  document.getElementById("stage-body").textContent=msg.amf||msg.body;
+  document.getElementById("msg-iface").textContent=msg.iface;
+  document.getElementById("msg-title").textContent=`${state.step+1}. ${msg.title}`;
+  document.getElementById("msg-body").textContent=msg.body;
+  document.getElementById("msg-amf").textContent="AMF: "+(msg.amf||"—");
+  document.getElementById("msg-trace").textContent=msg.trace;
+  document.getElementById("msg-state").textContent=msg.state||"—";
+  document.getElementById("flow-summary").textContent=flow.summary;
+  document.getElementById("flow-status").textContent=`Message ${state.step+1} / ${flow.msgs.length}`;
+  document.getElementById("flow-bar").style.width=`${((state.step+1)/flow.msgs.length)*100}%`;
+  document.getElementById("flow-prev").disabled=state.step===0;
+  document.getElementById("flow-next").disabled=state.step===flow.msgs.length-1;
+
+  const dots=document.getElementById("flow-dots");
+  dots.innerHTML=flow.msgs.map((_,i)=>`<button class="dot ${i===state.step?"active":""}" type="button">${i+1}</button>`).join("");
+  [...dots.children].forEach((b,i)=>b.addEventListener("click",()=>{stopPlay();state.step=i;renderFlow();}));
+}
+
+document.getElementById("flow-prev").addEventListener("click",()=>stepFlow(-1));
+document.getElementById("flow-next").addEventListener("click",()=>stepFlow(1));
+document.getElementById("flow-play").addEventListener("click",togglePlay);
+document.getElementById("flow-reset").addEventListener("click",()=>{stopPlay();state.step=0;renderFlow();});
+
+document.getElementById("file-path").textContent=location.href.startsWith("file:")
+  ? decodeURI(location.pathname.replace(/^\//,"").replace(/\//g,"\\"))
+  : "5G-Core-Learning-Pack.html";
+
+/* Wrap tables for mobile horizontal scroll — layout only, no content change */
+document.querySelectorAll("table").forEach(t=>{
+  if(t.parentElement && t.parentElement.classList.contains("table-scroll")) return;
+  const w=document.createElement("div");
+  w.className="table-scroll";
+  t.parentNode.insertBefore(w,t);
+  w.appendChild(t);
+});
+
+setView("home");
+</script>
+</body>
+</html>
